@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* PropManage Brand System */
+    --background: 0 0% 99%;
+    --foreground: 0 0% 5%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    --primary: 222 78% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 0 0% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 222 100% 95%;
+    --accent-foreground: 224 79% 29%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 222 78% 47%;
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 5%;
+    --sidebar-primary: 222 78% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 100% 95%;
+    --sidebar-accent-foreground: 224 79% 29%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 222 78% 47%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 0 0% 95%;
+    --card: 222 47% 9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 222 78% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 30% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 222 30% 15%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 222 60% 15%;
+    --accent-foreground: 222 78% 70%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 222 78% 55%;
+
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 222 78% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 60% 15%;
+    --sidebar-accent-foreground: 222 78% 70%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 222 78% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  html {
+    @apply scroll-smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* PropManage Custom Utilities */
+@layer components {
+  /* Status badges */
+  .badge-paid {
+    @apply bg-[#DCFCE7] text-[#15803D] text-[12px] font-semibold px-2 py-0.5 rounded-[6px];
+  }
+  .badge-overdue {
+    @apply bg-[#FEF3C7] text-[#B45309] text-[12px] font-semibold px-2 py-0.5 rounded-[6px];
+  }
+  .badge-pending {
+    @apply bg-[#F1F5F9] text-[#475569] text-[12px] font-semibold px-2 py-0.5 rounded-[6px];
+  }
+  .badge-vacant {
+    @apply bg-[#EDE9FE] text-[#6D28D9] text-[12px] font-semibold px-2 py-0.5 rounded-[6px];
+  }
+  .badge-occupied {
+    @apply bg-[#DCFCE7] text-[#15803D] text-[12px] font-semibold px-2 py-0.5 rounded-[6px];
+  }
+
+  /* Status left-border cards */
+  .status-card-overdue {
+    @apply border-l-4 border-l-[#DC2626];
+  }
+  .status-card-paid {
+    @apply border-l-4 border-l-[#16A34A];
+  }
+  .status-card-pending {
+    @apply border-l-4 border-l-[#64748B];
+  }
+
+  /* Glass effect for cards */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+  }
+}
