@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { PROPERTY_TYPES, PROPERTY_STATUSES } from "@/config/constants";
+import { API_URL, PROPERTY_TYPES, PROPERTY_STATUSES } from "@/config/constants";
 
 export default function NewPropertyPage() {
   const router = useRouter();
@@ -20,42 +20,56 @@ export default function NewPropertyPage() {
     const formData = new FormData(e.currentTarget);
     const supabase = createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       setError("You must be logged in");
       setLoading(false);
       return;
     }
 
     const propertyData = {
-      owner_id: user.id,
       name: formData.get("name") as string,
-      address_line1: formData.get("address_line1") as string || null,
-      address_line2: formData.get("address_line2") as string || null,
-      city: formData.get("city") as string || null,
-      state_province: formData.get("state_province") as string || null,
-      country: formData.get("country") as string || "IN",
-      postal_code: formData.get("postal_code") as string || null,
-      property_type: formData.get("property_type") as string || null,
-      status: formData.get("status") as string || "vacant",
+      address_line1: (formData.get("address_line1") as string) || null,
+      address_line2: (formData.get("address_line2") as string) || null,
+      city: (formData.get("city") as string) || null,
+      state_province: (formData.get("state_province") as string) || null,
+      country: (formData.get("country") as string) || "IN",
+      postal_code: (formData.get("postal_code") as string) || null,
+      property_type: (formData.get("property_type") as string) || null,
+      status: (formData.get("status") as string) || "vacant",
       total_units: parseInt(formData.get("total_units") as string) || 1,
-      year_built: formData.get("year_built") ? parseInt(formData.get("year_built") as string) : null,
-      area_sqft: formData.get("area_sqft") ? parseFloat(formData.get("area_sqft") as string) : null,
-      notes: formData.get("notes") as string || null,
+      year_built: formData.get("year_built")
+        ? parseInt(formData.get("year_built") as string)
+        : null,
+      area_sqft: formData.get("area_sqft")
+        ? parseFloat(formData.get("area_sqft") as string)
+        : null,
+      notes: (formData.get("notes") as string) || null,
     };
 
-    const { error: insertError } = await supabase
-      .from("properties")
-      .insert(propertyData);
+    try {
+      const res = await fetch(`${API_URL}/api/properties/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(propertyData),
+      });
 
-    if (insertError) {
-      setError(insertError.message);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ detail: res.statusText }));
+        setError(errBody.detail || `Failed to create property (${res.status})`);
+        setLoading(false);
+        return;
+      }
+
+      router.push("/properties");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Network error — is the backend running?");
       setLoading(false);
-      return;
     }
-
-    router.push("/properties");
-    router.refresh();
   };
 
   return (

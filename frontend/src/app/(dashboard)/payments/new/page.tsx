@@ -55,14 +55,6 @@ export default function RecordPaymentPage() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const supabase = createClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("You must be logged in");
-      setLoading(false);
-      return;
-    }
 
     const tenancyId = formData.get("tenancy_id") as string;
     const tenancy = tenancies.find((t) => t.id === tenancyId);
@@ -73,41 +65,26 @@ export default function RecordPaymentPage() {
       return;
     }
 
-    const paymentData = {
-      tenancy_id: tenancyId,
-      property_id: tenancy.property_id,
-      owner_id: user.id,
-      payment_month: formData.get("payment_month") as string,
-      amount_due: parseFloat(formData.get("amount_due") as string),
-      amount_paid: parseFloat(formData.get("amount_paid") as string),
-      payment_date: (formData.get("payment_date") as string) || null,
-      payment_method: (formData.get("payment_method") as string) || null,
-      transaction_reference: (formData.get("transaction_reference") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      status: "paid",
-    };
+    try {
+      const { api } = await import("@/lib/api");
 
-    // Determine status based on amounts
-    if (paymentData.amount_paid >= paymentData.amount_due) {
-      paymentData.status = "paid";
-    } else if (paymentData.amount_paid > 0) {
-      paymentData.status = "partial";
-    } else {
-      paymentData.status = "pending";
-    }
+      await api.logPayment({
+        tenancy_id: tenancyId,
+        payment_month: formData.get("payment_month") as string,
+        amount_paid: parseFloat(formData.get("amount_paid") as string),
+        payment_method: (formData.get("payment_method") as string) || null,
+        transaction_reference: (formData.get("transaction_reference") as string) || null,
+        notes: (formData.get("notes") as string) || null,
+      });
 
-    const { error: insertError } = await supabase
-      .from("rent_payments")
-      .insert(paymentData);
-
-    if (insertError) {
-      setError(insertError.message);
+      router.push("/payments");
+      router.refresh();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to record payment";
+      setError(message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.push("/payments");
-    router.refresh();
   };
 
   // Derive a label for the current month

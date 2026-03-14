@@ -63,11 +63,24 @@ export default async function DashboardLayout({
   }
 
   // Fetch user profile
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("full_name, role")
     .eq("id", user.id)
     .single();
+
+  // Auto-create profile if missing (safety net for users who registered before fix)
+  if (!profile) {
+    const fallbackName =
+      user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      email: user.email,
+      full_name: fallbackName,
+      role: "owner",
+    });
+    profile = { full_name: fallbackName, role: "owner" };
+  }
 
   const displayName = profile?.full_name || user.email?.split("@")[0] || "User";
   const initials = displayName

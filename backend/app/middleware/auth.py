@@ -39,8 +39,23 @@ async def get_current_user(
             .execute()
         )
 
-        role = "owner"
-        if profile.data:
+        if not profile.data:
+            # Auto-create profile on first authenticated request
+            # This guarantees the profiles FK exists before any downstream insert
+            full_name = user.email.split("@")[0] if user.email else "User"
+            if hasattr(user, "user_metadata") and user.user_metadata:
+                full_name = user.user_metadata.get("full_name", full_name)
+            try:
+                admin.table("profiles").insert({
+                    "id": user.id,
+                    "email": user.email,
+                    "full_name": full_name,
+                    "role": "owner",
+                }).execute()
+            except Exception:
+                pass  # Profile may have been created concurrently
+            role = "owner"
+        else:
             role = profile.data.get("role", "owner")
 
         return {
