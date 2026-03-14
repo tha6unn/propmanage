@@ -358,10 +358,11 @@ CREATE POLICY "properties_manager" ON properties
   );
 
 -- Property access: owners manage access for their properties
+-- NOTE: Using granted_by instead of a subquery on properties to avoid
+-- infinite RLS recursion (properties_manager references property_access,
+-- property_access_owner must NOT reference properties).
 CREATE POLICY "property_access_owner" ON property_access
-  FOR ALL USING (
-    property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid())
-  );
+  FOR ALL USING (granted_by = auth.uid());
 
 -- Tenancies: owners see their properties' tenancies
 CREATE POLICY "tenancies_owner" ON tenancies

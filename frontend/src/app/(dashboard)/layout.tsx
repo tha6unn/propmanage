@@ -1,34 +1,51 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  CreditCard,
-  Bot,
-  Building2,
-  Wrench,
-  LogOut,
-  ChevronRight,
-} from "lucide-react";
+import { Building2, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { NavLink } from "@/components/nav-link";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Portfolio", href: "/portfolio" },
-  { icon: FileText, label: "Docs", href: "/documents" },
-  { icon: Users, label: "Tenants", href: "/tenants" },
-  { icon: CreditCard, label: "Payments", href: "/payments" },
-  { icon: Bot, label: "Agent", href: "/agent" },
+const ownerNavItems = [
+  { iconName: "LayoutDashboard", label: "Portfolio", href: "/portfolio" },
+  { iconName: "FileText", label: "Docs", href: "/documents" },
+  { iconName: "Users", label: "Tenants", href: "/tenants" },
+  { iconName: "CreditCard", label: "Payments", href: "/payments" },
+  { iconName: "Bot", label: "Agent", href: "/agent" },
 ];
 
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Portfolio", href: "/portfolio" },
-  { icon: Building2, label: "Properties", href: "/properties" },
-  { icon: FileText, label: "Documents", href: "/documents" },
-  { icon: Users, label: "Tenants", href: "/tenants" },
-  { icon: CreditCard, label: "Payments", href: "/payments" },
-  { icon: Wrench, label: "Maintenance", href: "/maintenance" },
-  { icon: Bot, label: "AI Agent", href: "/agent" },
+const ownerSidebarItems = [
+  { iconName: "LayoutDashboard", label: "Portfolio", href: "/portfolio" },
+  { iconName: "Building2", label: "Properties", href: "/properties" },
+  { iconName: "FileText", label: "Documents", href: "/documents" },
+  { iconName: "Users", label: "Tenants", href: "/tenants" },
+  { iconName: "CreditCard", label: "Payments", href: "/payments" },
+  { iconName: "Wrench", label: "Maintenance", href: "/maintenance" },
+  { iconName: "Bot", label: "AI Agent", href: "/agent" },
+];
+
+const tenantNavItems = [
+  { iconName: "LayoutDashboard", label: "My Home", href: "/my-tenancy" },
+  { iconName: "CreditCard", label: "Payments", href: "/payments" },
+  { iconName: "Wrench", label: "Maintenance", href: "/maintenance" },
+  { iconName: "FileText", label: "Docs", href: "/documents" },
+];
+
+const tenantSidebarItems = [
+  { iconName: "LayoutDashboard", label: "My Tenancy", href: "/my-tenancy" },
+  { iconName: "CreditCard", label: "Payments", href: "/payments" },
+  { iconName: "Wrench", label: "Maintenance", href: "/maintenance" },
+  { iconName: "FileText", label: "Documents", href: "/documents" },
+];
+
+const managerNavItems = [
+  { iconName: "Building2", label: "Properties", href: "/assigned-properties" },
+  { iconName: "Wrench", label: "Maintenance", href: "/maintenance" },
+  { iconName: "FileText", label: "Docs", href: "/documents" },
+];
+
+const managerSidebarItems = [
+  { iconName: "Building2", label: "Assigned Properties", href: "/assigned-properties" },
+  { iconName: "Wrench", label: "Maintenance", href: "/maintenance" },
+  { iconName: "FileText", label: "Documents", href: "/documents" },
 ];
 
 export default async function DashboardLayout({
@@ -61,30 +78,32 @@ export default async function DashboardLayout({
     .slice(0, 2);
   const role = profile?.role || "owner";
 
+  const sidebarItems = role === "tenant" ? tenantSidebarItems : role === "manager" ? managerSidebarItems : ownerSidebarItems;
+  const navItems = role === "tenant" ? tenantNavItems : role === "manager" ? managerNavItems : ownerNavItems;
+  const homeHref = role === "tenant" ? "/my-tenancy" : role === "manager" ? "/assigned-properties" : "/portfolio";
+
   return (
     <div className="min-h-screen bg-surface">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-[260px] bg-white border-r border-gray-100">
+      <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-[260px] bg-white border-r border-gray-100 z-30">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-100">
-          <div className="w-9 h-9 bg-propblue rounded-xl flex items-center justify-center">
+        <Link href={homeHref} className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-100 hover:bg-surface/50 transition-colors">
+          <div className="w-9 h-9 bg-propblue rounded-xl flex items-center justify-center shadow-glow">
             <Building2 className="w-5 h-5 text-white" />
           </div>
           <span className="text-[18px] font-bold text-ink">PropManage</span>
-        </div>
+        </Link>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {sidebarItems.map((item) => (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-ink-medium hover:bg-propblue-light hover:text-propblue transition-colors group"
-            >
-              <item.icon className="w-[18px] h-[18px]" />
-              <span className="font-medium">{item.label}</span>
-              <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
+              label={item.label}
+              iconName={item.iconName}
+              variant="sidebar"
+            />
           ))}
         </nav>
 
@@ -124,8 +143,10 @@ export default async function DashboardLayout({
               </div>
               <span className="text-base font-bold text-ink">PropManage</span>
             </div>
-            <div className="w-7 h-7 bg-propblue/10 text-propblue rounded-lg flex items-center justify-center text-[11px] font-bold">
-              {initials}
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-propblue/10 text-propblue rounded-lg flex items-center justify-center text-[11px] font-bold">
+                {initials}
+              </div>
             </div>
           </div>
         </header>
@@ -138,16 +159,13 @@ export default async function DashboardLayout({
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-2 py-1 z-20">
         <div className="flex items-center justify-around">
           {navItems.map((item) => (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center py-1.5 px-3 text-ink-light hover:text-propblue transition-colors"
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium mt-0.5">
-                {item.label}
-              </span>
-            </Link>
+              label={item.label}
+              iconName={item.iconName}
+              variant="mobile"
+            />
           ))}
         </div>
       </nav>

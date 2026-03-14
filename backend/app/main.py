@@ -4,23 +4,25 @@ AI-Powered Global Property Management Platform
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 from app.routers import auth, properties, documents, tenancies, payments, maintenance, agent, notifications
 
 app = FastAPI(
     title="PropManage API",
     description="AI-Powered Global Property Management Platform",
-    version="0.1.0",
+    version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# CORS — allow Next.js frontend
+# CORS — dynamic origins from env
+allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
+if settings.FRONTEND_URL:
+    allowed_origins.append(settings.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://propmanage.vercel.app",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,11 +42,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 @app.get("/health", tags=["System"])
 async def health_check():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "propmanage-api",
-        "version": "0.1.0",
-    }
+    return {"status": "ok", "version": "1.0.0", "env": settings.APP_ENV}
 
 
 @app.get("/", tags=["System"])

@@ -1,6 +1,10 @@
 """Configuration for PropManage backend."""
 import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
+
+# Load .env file from backend root
+load_dotenv()
 
 
 @dataclass
@@ -9,7 +13,7 @@ class Settings:
 
     # App
     APP_ENV: str = os.getenv("APP_ENV", "development")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     DEBUG: bool = os.getenv("APP_ENV", "development") == "development"
 
     # Supabase
@@ -18,7 +22,7 @@ class Settings:
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     # JWT
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
@@ -40,6 +44,10 @@ class Settings:
     # SendGrid
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
     SENDGRID_FROM_EMAIL: str = os.getenv("SENDGRID_FROM_EMAIL", "noreply@propmanage.app")
+    SENDGRID_FROM_NAME: str = os.getenv("SENDGRID_FROM_NAME", "PropManage")
+
+    # Frontend
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # Feature Flags
     ENABLE_AI_AGENT: bool = os.getenv("ENABLE_AI_AGENT", "true").lower() == "true"

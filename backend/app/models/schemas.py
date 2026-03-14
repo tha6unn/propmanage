@@ -1,5 +1,5 @@
 """Pydantic models for request/response schemas."""
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
 from enum import Enum
@@ -45,6 +45,33 @@ class PaymentMethod(str, Enum):
     CHEQUE = "cheque"
     CARD = "card"
     OTHER = "other"
+
+
+class MaintenanceCategory(str, Enum):
+    PLUMBING = "plumbing"
+    ELECTRICAL = "electrical"
+    STRUCTURAL = "structural"
+    APPLIANCE = "appliance"
+    PEST_CONTROL = "pest_control"
+    CLEANING = "cleaning"
+    SECURITY = "security"
+    OTHER = "other"
+
+
+class MaintenancePriority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    EMERGENCY = "emergency"
+
+
+class MaintenanceStatus(str, Enum):
+    OPEN = "open"
+    ACKNOWLEDGED = "acknowledged"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+    REJECTED = "rejected"
 
 
 # ---- Auth ----
@@ -145,6 +172,27 @@ class PaymentLog(BaseModel):
     notes: Optional[str] = None
 
 
+# ---- Maintenance ----
+class MaintenanceCreate(BaseModel):
+    property_id: str
+    tenancy_id: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+    priority: str = "medium"
+    estimated_cost: Optional[float] = None
+
+
+class MaintenanceUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_to: Optional[str] = None
+    vendor_name: Optional[str] = None
+    estimated_cost: Optional[float] = None
+    actual_cost: Optional[float] = None
+    resolution_notes: Optional[str] = None
+
+
 # ---- Agent ----
 class AgentChatRequest(BaseModel):
     message: str
@@ -165,3 +213,19 @@ class DataResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: dict
+
+
+# ---- Invites ----
+class InviteAcceptRequest(BaseModel):
+    token: str
+    full_name: str
+    password: str
+    phone: Optional[str] = None
+
+
+class ManagerInviteRequest(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    property_ids: List[str]
+    can_see_financials: bool = False
+    can_see_tenant_kyc: bool = False
