@@ -19,14 +19,24 @@ def _send_email(to_email: str, subject: str, html_content: str) -> bool:
 
     try:
         resend.api_key = settings.RESEND_API_KEY
+
+        # Use Resend test address in non-production or when domain isn't verified
+        from_email = settings.RESEND_FROM_EMAIL
+        if settings.APP_ENV != "production" or from_email.endswith("@propmanage.app"):
+            from_address = f"PropManage <onboarding@resend.dev>"
+        else:
+            from_address = f"{settings.RESEND_FROM_NAME} <{from_email}>"
+
+        logger.info(f"[EMAIL] Sending to {to_email} via Resend")
+
         params: resend.Emails.SendParams = {
-            "from": f"{settings.RESEND_FROM_NAME} <{settings.RESEND_FROM_EMAIL}>",
+            "from": from_address,
             "to": [to_email],
             "subject": subject,
             "html": html_content,
         }
-        resend.Emails.send(params)
-        logger.info(f"[EMAIL-SENT] To: {to_email} | Subject: {subject}")
+        email = resend.Emails.send(params)
+        logger.info(f"[EMAIL] Result: {email}")
         return True
     except Exception as e:
         logger.error(f"[EMAIL-FAIL] To: {to_email} | Error: {e}")
