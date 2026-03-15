@@ -22,7 +22,7 @@ apscheduler>=3.10.4
 pytz>=2024.1
 
 # Email (Resend)
-resend>=3.0.0
+resend>=2.0.0
 
 # File Storage (Cloudflare R2 via S3-compatible API)
 boto3>=1.35.0
