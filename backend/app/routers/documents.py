@@ -2,6 +2,7 @@
 import uuid
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from app.services.supabase import get_supabase_admin
+from app.services.r2_service import upload_document as r2_upload, get_signed_url, delete_document as r2_delete
 from app.middleware.auth import get_current_user
 from app.utils.pagination import paginate_params, paginated_response
 
@@ -23,12 +24,51 @@ async def list_documents(
     try:
         admin = get_supabase_admin()
         offset, limit = paginate_params(page, per_page)
+        user_role = user.get("role", "owner")
 
-        query = (
-            admin.table("documents")
-            .select("*, properties(name)", count="exact")
-            .eq("owner_id", user["id"])
-        )
+        if user_role == "tenant":
+            # Tenants see only agreement/tenant_kyc docs for their linked properties
+            tenancies = (
+                admin.table("tenancies")
+                .select("property_id")
+                .eq("tenant_profile_id", user["id"])
+                .execute()
+            )
+            property_ids = [t["property_id"] for t in (tenancies.data or [])]
+            if not property_ids:
+                return paginated_response([], 0, page, per_page)
+
+            query = (
+                admin.table("documents")
+                .select("*, properties(name)", count="exact")
+                .in_("property_id", property_ids)
+                .in_("category", ["agreement", "tenant_kyc"])
+            )
+        elif user_role == "manager":
+            # Managers see docs for their assigned properties
+            access = (
+                admin.table("property_access")
+                .select("property_id")
+                .eq("user_id", user["id"])
+                .is_("revoked_at", "null")
+                .execute()
+            )
+            property_ids = [a["property_id"] for a in (access.data or [])]
+            if not property_ids:
+                return paginated_response([], 0, page, per_page)
+
+            query = (
+                admin.table("documents")
+                .select("*, properties(name)", count="exact")
+                .in_("property_id", property_ids)
+            )
+        else:
+            # Owners see all their documents
+            query = (
+                admin.table("documents")
+                .select("*, properties(name)", count="exact")
+                .eq("owner_id", user["id"])
+            )
 
         if property_id:
             query = query.eq("property_id", property_id)
@@ -88,12 +128,8 @@ async def upload_document(
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail="File too large (max 25 MB)")
 
-        # Upload to Supabase Storage
-        admin.storage.from_("documents").upload(
-            path=storage_path,
-            file=content,
-            file_options={"content-type": file.content_type or "application/octet-stream"},
-        )
+        # Upload to Cloudflare R2
+        r2_upload(content, storage_path, content_type=file.content_type or "application/octet-stream")
 
         # Insert metadata row
         doc_data = {
@@ -130,19 +166,55 @@ async def get_document(
     """Get document metadata."""
     try:
         admin = get_supabase_admin()
+        user_role = user.get("role", "owner")
+
+        # Fetch document
         response = (
             admin.table("documents")
             .select("*, properties(name)")
             .eq("id", document_id)
-            .eq("owner_id", user["id"])
-            .single()
+            .maybe_single()
             .execute()
         )
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Document not found")
 
-        return {"data": response.data}
+        d = response.data
+
+        # Access check by role
+        if user_role == "owner":
+            if d["owner_id"] != user["id"]:
+                raise HTTPException(status_code=403, detail="Access denied")
+        elif user_role == "manager":
+            access = (
+                admin.table("property_access")
+                .select("id")
+                .eq("property_id", d["property_id"])
+                .eq("user_id", user["id"])
+                .is_("revoked_at", "null")
+                .maybe_single()
+                .execute()
+            )
+            if not access.data:
+                raise HTTPException(status_code=403, detail="Access denied")
+        elif user_role == "tenant":
+            if d.get("category") not in ["agreement", "tenant_kyc"]:
+                raise HTTPException(status_code=403, detail="Access denied")
+            tenancy = (
+                admin.table("tenancies")
+                .select("id")
+                .eq("tenant_profile_id", user["id"])
+                .eq("property_id", d["property_id"])
+                .maybe_single()
+                .execute()
+            )
+            if not tenancy.data:
+                raise HTTPException(status_code=403, detail="Access denied")
+        else:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        return {"data": d}
 
     except HTTPException:
         raise
@@ -155,33 +227,79 @@ async def download_document(
     document_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Get signed URL for document download (15-min expiry)."""
+    """Get signed URL for document download (15-min expiry).
+    
+    Supports all 3 roles:
+    - Owner: can download any of their documents
+    - Manager: can download docs for assigned properties
+    - Tenant: can download only agreement/tenant_kyc docs for their tenancy
+    """
     try:
         admin = get_supabase_admin()
 
+        # Fetch document
         doc = (
             admin.table("documents")
-            .select("file_path")
+            .select("*")
             .eq("id", document_id)
-            .eq("owner_id", user["id"])
-            .single()
+            .maybe_single()
             .execute()
         )
 
         if not doc.data:
             raise HTTPException(status_code=404, detail="Document not found")
 
-        # Generate signed URL (900 seconds = 15 minutes)
-        signed = admin.storage.from_("documents").create_signed_url(
-            doc.data["file_path"], 900
-        )
+        d = doc.data
+        user_id = user["id"]
+        user_role = user.get("role", "owner")
 
-        return {"url": signed.get("signedURL") or signed.get("signed_url", "")}
+        # Access check by role
+        if user_role == "owner":
+            if d["owner_id"] != user_id:
+                raise HTTPException(status_code=403, detail="Access denied")
+
+        elif user_role == "manager":
+            access = (
+                admin.table("property_access")
+                .select("id")
+                .eq("property_id", d["property_id"])
+                .eq("user_id", user_id)
+                .is_("revoked_at", "null")
+                .maybe_single()
+                .execute()
+            )
+            if not access.data:
+                raise HTTPException(status_code=403, detail="Access denied")
+
+        elif user_role == "tenant":
+            # Tenant can only view agreement and tenant_kyc documents
+            if d.get("category") not in ["agreement", "tenant_kyc"]:
+                raise HTTPException(status_code=403, detail="Access denied")
+            tenancy = (
+                admin.table("tenancies")
+                .select("id")
+                .eq("tenant_profile_id", user_id)
+                .eq("property_id", d["property_id"])
+                .maybe_single()
+                .execute()
+            )
+            if not tenancy.data:
+                raise HTTPException(status_code=403, detail="Access denied")
+
+        else:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Generate signed URL from R2 (15-minute expiry)
+        signed_url = get_signed_url(d["file_path"], expiry_seconds=900)
+        if not signed_url:
+            raise HTTPException(status_code=500, detail="Could not generate download URL")
+
+        return {"url": signed_url, "filename": d.get("title", "document")}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Storage error: {str(e)}")
 
 
 @router.patch("/{document_id}")
@@ -237,11 +355,11 @@ async def update_document(
 
 
 @router.delete("/{document_id}")
-async def delete_document(
+async def delete_document_endpoint(
     document_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Soft delete a document (remove from storage, keep metadata)."""
+    """Delete a document (remove from R2 storage, soft-delete metadata)."""
     try:
         admin = get_supabase_admin()
 
@@ -255,6 +373,9 @@ async def delete_document(
         )
         if not doc.data:
             raise HTTPException(status_code=404, detail="Document not found")
+
+        # Delete from R2 storage
+        r2_delete(doc.data["file_path"])
 
         # Soft delete: mark with metadata
         admin.table("documents").update({

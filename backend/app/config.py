@@ -17,7 +17,7 @@ class Settings:
     DEBUG: bool = os.getenv("APP_ENV", "development") == "development"
 
     # Supabase
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://pgxjtogwnbvbrgxalpir.supabase.co")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
@@ -36,15 +36,17 @@ class Settings:
     # OpenAI (Whisper)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # Twilio
-    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
-    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
-    TWILIO_WHATSAPP_FROM: str = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+    # Resend (Email)
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "noreply@propmanage.app")
+    RESEND_FROM_NAME: str = os.getenv("RESEND_FROM_NAME", "PropManage")
 
-    # SendGrid
-    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
-    SENDGRID_FROM_EMAIL: str = os.getenv("SENDGRID_FROM_EMAIL", "noreply@propmanage.app")
-    SENDGRID_FROM_NAME: str = os.getenv("SENDGRID_FROM_NAME", "PropManage")
+    # Cloudflare R2 (Document Storage)
+    R2_ACCOUNT_ID: str = os.getenv("R2_ACCOUNT_ID", "")
+    R2_ACCESS_KEY_ID: str = os.getenv("R2_ACCESS_KEY_ID", "")
+    R2_SECRET_ACCESS_KEY: str = os.getenv("R2_SECRET_ACCESS_KEY", "")
+    R2_BUCKET_NAME: str = os.getenv("R2_BUCKET_NAME", "propmanage-documents")
+    R2_PUBLIC_URL: str = os.getenv("R2_PUBLIC_URL", "")
 
     # Frontend
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")

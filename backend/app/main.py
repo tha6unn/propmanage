@@ -39,6 +39,20 @@ app.include_router(agent.router, prefix="/api/agent", tags=["AI Agent"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Start background scheduler on app startup."""
+    from app.worker import scheduler
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown background scheduler on app shutdown."""
+    from app.worker import scheduler
+    scheduler.shutdown()
+
+
 @app.get("/health", tags=["System"])
 async def health_check():
     """Health check endpoint."""

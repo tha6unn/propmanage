@@ -1,5 +1,6 @@
 """Notification endpoints."""
-from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Query, HTTPException
 from app.middleware.auth import get_current_user
 from app.services.supabase import get_supabase_admin
 from app.utils.pagination import paginate_params, paginated_response
@@ -7,17 +8,17 @@ from app.utils.pagination import paginate_params, paginated_response
 router = APIRouter()
 
 
+class SendReminderRequest(BaseModel):
+    """Request body for sending a rent reminder."""
+    tenancy_id: str
+
+
 @router.post("/send-reminder")
 async def send_reminder(
-    tenancy_id: str = None,
+    request: SendReminderRequest,
     user: dict = Depends(get_current_user),
 ):
     """Manually trigger rent reminder to a tenant."""
-    from fastapi import HTTPException
-
-    if not tenancy_id:
-        raise HTTPException(status_code=400, detail="tenancy_id is required")
-
     try:
         admin = get_supabase_admin()
 
@@ -25,7 +26,7 @@ async def send_reminder(
         tenancy = (
             admin.table("tenancies")
             .select("*, properties(name, owner_id)")
-            .eq("id", tenancy_id)
+            .eq("id", request.tenancy_id)
             .single()
             .execute()
         )
@@ -47,7 +48,7 @@ async def send_reminder(
         pending = (
             admin.table("rent_payments")
             .select("*")
-            .eq("tenancy_id", tenancy_id)
+            .eq("tenancy_id", request.tenancy_id)
             .in_("status", ["pending", "overdue"])
             .lte("payment_month", current_month)
             .order("payment_month", desc=False)
@@ -74,8 +75,8 @@ async def send_reminder(
         )
 
         return {
-            "message": "Rent reminder sent" if success else "Reminder logged (email pending)",
-            "tenancy_id": tenancy_id,
+            "message": "Rent reminder sent" if success else "Reminder logged (email pending — configure RESEND_API_KEY)",
+            "tenancy_id": request.tenancy_id,
             "email": email,
             "sent": success,
         }

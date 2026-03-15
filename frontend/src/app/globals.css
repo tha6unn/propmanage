@@ -123,3 +123,53 @@
     @apply bg-white/80 backdrop-blur-xl border border-white/20;
   }
 }
+
+/* ─── Mobile-First Global Rules ─── */
+
+/* Prevent iOS auto-zoom on input focus (minimum 16px) */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe area padding for bottom nav on notched iPhones */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  nav[class*="fixed bottom-0"] {
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+  }
+}
+
+/* Minimum tap target sizes for accessibility */
+@media (max-width: 768px) {
+  button:not([class*="w-"]),
+  a[role="button"],
+  [role="button"] {
+    min-height: 44px;
+  }
+}
+
+/* Smooth animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out both;
+}

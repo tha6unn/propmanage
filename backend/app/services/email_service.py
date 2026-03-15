@@ -1,19 +1,36 @@
-"""Email service using SendGrid for transactional emails."""
+"""Email service using Resend for transactional emails.
+
+Graceful fallback: if RESEND_API_KEY is not set, emails are logged
+to console instead of crashing.
+"""
 import logging
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, From, To, Subject, HtmlContent
+import resend
 from app.config import settings
 from app.services.supabase import get_supabase_admin
 
 logger = logging.getLogger(__name__)
 
 
-def _get_sendgrid_client() -> SendGridAPIClient | None:
-    """Get SendGrid client, returns None if API key not configured."""
-    if not settings.SENDGRID_API_KEY:
-        logger.warning("SENDGRID_API_KEY not set — emails will be logged only, not sent.")
-        return None
-    return SendGridAPIClient(settings.SENDGRID_API_KEY)
+def _send_email(to_email: str, subject: str, html_content: str) -> bool:
+    """Send an email via Resend. Returns True if sent, False if failed/skipped."""
+    if not settings.RESEND_API_KEY:
+        logger.info(f"[EMAIL-SKIP] No RESEND_API_KEY set. To: {to_email} | Subject: {subject}")
+        return False
+
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        params: resend.Emails.SendParams = {
+            "from": f"{settings.RESEND_FROM_NAME} <{settings.RESEND_FROM_EMAIL}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        }
+        resend.Emails.send(params)
+        logger.info(f"[EMAIL-SENT] To: {to_email} | Subject: {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"[EMAIL-FAIL] To: {to_email} | Error: {e}")
+        return False
 
 
 def _log_notification(
@@ -37,29 +54,6 @@ def _log_notification(
         }).execute()
     except Exception as e:
         logger.error(f"Failed to log notification: {e}")
-
-
-def _send_email(to_email: str, subject: str, html_content: str) -> bool:
-    """Send an email via SendGrid. Returns True if sent, False if failed/skipped."""
-    sg = _get_sendgrid_client()
-    if not sg:
-        logger.info(f"[EMAIL-SKIP] To: {to_email} | Subject: {subject}")
-        return False
-
-    message = Mail(
-        from_email=From(settings.SENDGRID_FROM_EMAIL, settings.SENDGRID_FROM_NAME),
-        to_emails=To(to_email),
-        subject=Subject(subject),
-        html_content=HtmlContent(html_content),
-    )
-
-    try:
-        response = sg.send(message)
-        logger.info(f"[EMAIL-SENT] To: {to_email} | Status: {response.status_code}")
-        return response.status_code in (200, 201, 202)
-    except Exception as e:
-        logger.error(f"[EMAIL-FAIL] To: {to_email} | Error: {e}")
-        return False
 
 
 # ──────────────────────────────────────────

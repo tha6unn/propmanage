@@ -34,9 +34,9 @@ function isExpired(expiryDate: string | undefined | null): boolean {
   return new Date(expiryDate) < new Date();
 }
 
-function getDocumentViewUrl(filePath: string): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  return `${supabaseUrl}/storage/v1/object/public/documents/${filePath}`;
+function getDocumentDownloadUrl(docId: string): string {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  return `${apiUrl}/api/documents/${docId}/download`;
 }
 
 export default async function DocumentsPage({
@@ -140,7 +140,7 @@ export default async function DocumentsPage({
                 {/* Actions — View & Download */}
                 <div className="flex items-center gap-1 ml-3">
                   <a
-                    href={getDocumentViewUrl(doc.file_path)}
+                    href={getDocumentDownloadUrl(doc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-propblue transition-colors"
@@ -149,7 +149,7 @@ export default async function DocumentsPage({
                     <Eye className="w-4 h-4" />
                   </a>
                   <a
-                    href={getDocumentViewUrl(doc.file_path)}
+                    href={getDocumentDownloadUrl(doc.id)}
                     download={doc.original_filename || doc.title}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-sage transition-colors"
                     title="Download document"
