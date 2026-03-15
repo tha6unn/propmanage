@@ -1,15 +1,50 @@
 """Document management endpoints."""
 import uuid
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from app.services.supabase import get_supabase_admin
-from app.services.r2_service import upload_document as r2_upload, get_signed_url, delete_document as r2_delete
+from app.services.r2_service import upload_document as r2_upload, get_signed_url, delete_document as r2_delete, _get_r2_client
 from app.middleware.auth import get_current_user
 from app.utils.pagination import paginate_params, paginated_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx", "csv", "txt"}
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
+
+
+async def _get_download_url(file_path: str, admin=None) -> str | None:
+    """Get a signed download URL.
+    
+    Strategy:
+    1. If R2 is configured → use R2 presigned URL
+    2. Otherwise → fall back to Supabase Storage signed URL (for pre-R2 documents)
+    """
+    # Try R2 first
+    if _get_r2_client():
+        return get_signed_url(file_path, expiry_seconds=900)
+
+    # Fallback: Supabase Storage
+    if admin is None:
+        admin = get_supabase_admin()
+    try:
+        result = admin.storage.from_("documents").create_signed_url(file_path, 900)
+        # Handle both SDK response formats
+        url = (
+            result.get("signedURL")
+            or result.get("signed_url")
+            or (result.get("data") or {}).get("signedURL")
+            or (result.get("data") or {}).get("signed_url")
+        )
+        if url:
+            logger.info(f"[STORAGE] Supabase fallback URL generated for: {file_path}")
+            return url
+    except Exception as e:
+        logger.error(f"[STORAGE] Supabase fallback failed for {file_path}: {e}")
+
+    return None
 
 
 @router.get("/")
@@ -289,8 +324,8 @@ async def download_document(
         else:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        # Generate signed URL from R2 (15-minute expiry)
-        signed_url = get_signed_url(d["file_path"], expiry_seconds=900)
+        # Generate signed URL — try R2 first, fall back to Supabase Storage
+        signed_url = await _get_download_url(d["file_path"], admin)
         if not signed_url:
             raise HTTPException(status_code=500, detail="Could not generate download URL")
 

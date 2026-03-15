@@ -15,17 +15,18 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS — dynamic origins from env
+# CORS — dynamic origins from env + Vercel preview deploys
 allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
 if settings.FRONTEND_URL:
-    allowed_origins.append(settings.FRONTEND_URL)
+    allowed_origins.append(settings.FRONTEND_URL.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "*"],
 )
 
 # Register routers

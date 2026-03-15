@@ -1,8 +1,28 @@
-import { FileText, Plus, AlertTriangle, Download, Eye } from "lucide-react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { FileText, Plus, AlertTriangle, Download, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getDocuments, type Document } from "@/lib/queries";
 import { DOCUMENT_CATEGORIES } from "@/config/constants";
+import { api } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
+
+type Document = {
+  id: string;
+  property_id: string;
+  owner_id: string;
+  category: string;
+  title: string;
+  description?: string;
+  file_path: string;
+  original_filename?: string;
+  file_type?: string;
+  file_size_bytes?: number;
+  expiry_date?: string;
+  ocr_status: string;
+  created_at: string;
+  properties?: { name: string };
+};
 
 function CategoryBadge({ category }: { category: string }) {
   const colors: Record<string, string> = {
@@ -34,19 +54,76 @@ function isExpired(expiryDate: string | undefined | null): boolean {
   return new Date(expiryDate) < new Date();
 }
 
-function getDocumentDownloadUrl(docId: string): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  return `${apiUrl}/api/documents/${docId}/download`;
+function DocumentActions({ doc }: { doc: Document }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { url } = await api.downloadDocument(doc.id);
+      if (url) {
+        window.open(url, "_blank");
+      }
+    } catch (err) {
+      console.error("Download failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1 ml-3">
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-propblue transition-colors disabled:opacity-40"
+        title="View document"
+      >
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+      </button>
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-sage transition-colors disabled:opacity-40"
+        title="Download document"
+      >
+        <Download className="w-4 h-4" />
+      </button>
+    </div>
+  );
 }
 
-export default async function DocumentsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ category?: string }>;
-}) {
-  const params = await searchParams;
-  const supabase = await createClient();
-  const documents = await getDocuments(supabase, { category: params.category });
+export default function DocumentsPage() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchDocuments() {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        let query = supabase
+          .from("documents")
+          .select("*, properties(name)")
+          .order("created_at", { ascending: false });
+
+        if (category) {
+          query = query.eq("category", category);
+        }
+
+        const { data } = await query;
+        setDocuments((data || []) as Document[]);
+      } catch (err) {
+        console.error("Failed to load documents:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDocuments();
+  }, [category]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -67,31 +144,38 @@ export default async function DocumentsPage({
 
       {/* Category Filters */}
       <div className="flex gap-2 flex-wrap">
-        <Link
-          href="/documents"
+        <button
+          onClick={() => setCategory(null)}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            !params.category ? "bg-propblue text-white" : "bg-surface text-ink-light hover:text-ink"
+            !category ? "bg-propblue text-white" : "bg-surface text-ink-light hover:text-ink"
           }`}
         >
           All
-        </Link>
+        </button>
         {DOCUMENT_CATEGORIES.map((cat) => (
-          <Link
+          <button
             key={cat.value}
-            href={`/documents?category=${cat.value}`}
+            onClick={() => setCategory(cat.value)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              params.category === cat.value
+              category === cat.value
                 ? "bg-propblue text-white"
                 : "bg-surface text-ink-light hover:text-ink"
             }`}
           >
             {cat.label}
-          </Link>
+          </button>
         ))}
       </div>
 
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-propblue" />
+        </div>
+      )}
+
       {/* Documents List */}
-      {documents.length === 0 ? (
+      {!loading && documents.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-card">
           <FileText className="w-10 h-10 text-ink-light/40 mx-auto mb-3" />
           <p className="text-body font-medium text-ink mb-1">No documents found</p>
@@ -104,9 +188,9 @@ export default async function DocumentsPage({
             Upload Document
           </Link>
         </div>
-      ) : (
+      ) : !loading ? (
         <div className="space-y-3">
-          {documents.map((doc: Document, i: number) => (
+          {documents.map((doc, i) => (
             <div
               key={doc.id}
               className="bg-white rounded-xl border border-gray-100 p-4 shadow-card hover:shadow-card-hover transition-all duration-200 animate-slide-up"
@@ -137,31 +221,13 @@ export default async function DocumentsPage({
                     )}
                   </div>
                 </div>
-                {/* Actions — View & Download */}
-                <div className="flex items-center gap-1 ml-3">
-                  <a
-                    href={getDocumentDownloadUrl(doc.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-propblue transition-colors"
-                    title="View document"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </a>
-                  <a
-                    href={getDocumentDownloadUrl(doc.id)}
-                    download={doc.original_filename || doc.title}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface text-ink-light hover:text-sage transition-colors"
-                    title="Download document"
-                  >
-                    <Download className="w-4 h-4" />
-                  </a>
-                </div>
+                {/* Actions — View & Download (client-side with auth) */}
+                <DocumentActions doc={doc} />
               </div>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

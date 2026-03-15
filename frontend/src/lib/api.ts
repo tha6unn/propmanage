@@ -71,6 +71,14 @@ class ApiClient {
     );
   }
 
+  // Document download — returns signed URL (requires auth)
+  async downloadDocument(documentId: string): Promise<{ url: string; filename: string }> {
+    return this.request<{ url: string; filename: string }>(
+      "GET",
+      `/api/documents/${documentId}/download`
+    );
+  }
+
   // Agent chat
   async sendAgentMessage(message: string, sessionId?: string) {
     return this.request<{
